@@ -1,5 +1,4 @@
 from socket import socket, AF_INET, SOCK_STREAM
-import requests
 
 socket_client = socket(AF_INET, SOCK_STREAM)
 socket_client.connect(('127.0.0.1', 12345))

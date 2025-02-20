@@ -1,5 +1,5 @@
 from threading import Thread
-from socket import socket, AF_INET, SOCK_STREAM
+from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 import time
 
 log_eleitores = {}
@@ -7,6 +7,14 @@ eleitores_conectados = {}
 candidatos = {"1": 0, "2": 0}
 vencedor = ""
 total_votos = 0
+
+
+def connect_dns(server_address, dns_address):
+    query = f'new_address:votacao:{server_address[0]}:{server_address[1]}'
+    dns_socket = socket(AF_INET, SOCK_DGRAM)
+    dns_socket.sendto(query.encode(), (dns_address[0], dns_address[1]))
+    response = dns_socket.recv(1024).decode()
+    print(response)
 
 
 def check_winner():
@@ -56,7 +64,7 @@ def handle_request(socket_client, addr_client):
     
     while vencedor == "":
         request = socket_client.recv(1024).decode()
-        if request == "sair" and log_eleitores[addr_client] != "Nao votou":
+        if request == "sair" and log_eleitores[eleitor] != "Nao votou":
             if len(eleitores_conectados) > 1:
                 break
             else:
@@ -90,8 +98,14 @@ def handle_request(socket_client, addr_client):
         print(f'{eleitor} desconectou')
         socket_client.close()
 
+
+server_address = ('127.0.0.1', 12345)
+dns_address = ('127.0.0.1', 10000)
+
+connect_dns(server_address, dns_address)
+
 server_socket = socket(AF_INET, SOCK_STREAM)
-server_socket.bind(('127.0.0.1', 12345))
+server_socket.bind(server_address)
 server_socket.listen()
 print('Aguardando solicitacao...')
 Thread(target=check_winner).start()

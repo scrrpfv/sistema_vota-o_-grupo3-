@@ -29,6 +29,10 @@ def handle_dns_request(query, addr, dns_socket):
         else:
             dns_socket.sendto('Not Found'.encode(), addr)
             print(f'Endereco {name} nao encontrado')
+    
+    else:
+        dns_socket.sendto('Busca inválida'.encode(), addr)
+        print('Busca inválida')
 
 
 dns_socket = socket(AF_INET, SOCK_DGRAM)

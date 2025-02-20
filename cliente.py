@@ -1,6 +1,8 @@
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
+import requests
 import time
 import rsa
+
 
 def get_address(name):
     dns_address = ('127.0.0.1', 10000)

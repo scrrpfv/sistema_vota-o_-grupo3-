@@ -11,12 +11,12 @@ class Eleitor:
         self.server_name = 'votacao'
         self.server_address = None
 
-    def get_address(self):
+    def get_address(self, addr_name):
         dns_address = ('127.0.0.1', 10000)
         socket_dns = socket(AF_INET, SOCK_DGRAM) # Abre socket temporário
         socket_dns.bind(('127.0.0.1', 10100))
 
-        socket_dns.sendto(f'get_address:{self.server_name}'.encode(), dns_address)
+        socket_dns.sendto(f'get_address:{addr_name}'.encode(), dns_address)
         
         socket_dns.settimeout(2)  # Define timeout para 2 segundos
         try:
@@ -30,7 +30,7 @@ class Eleitor:
         
     def connect_server(self):
         while self.server_address is None:
-            self.get_address()
+            self.get_address(self.server_name)
             if self.server_address == 'DNS_NOT_FOUND':
                 print('DNS nao encontrado')
                 self.server_address = None

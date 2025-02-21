@@ -10,6 +10,7 @@ class Eleitor:
         self.socket = None
         self.server_name = 'votacao'
         self.server_address = None
+        self.private_key = None
 
     def get_address(self, addr_name):
         dns_address = ('127.0.0.1', 10000)
@@ -51,6 +52,17 @@ class Eleitor:
 
     def receber(self):
         return self.socket.recv(1024).decode()
+    
+    def generate_keys(self):
+        public_key, private_key = rsa.newkeys(512)
+        self.private_key = private_key
+        
+        url = f"http://localhost:5000/?nome={self.nome}"
+        post_data = public_key.save_pkcs1().decode()
+        headers = {"Content-Type": "text/plain"}
+        post_response = requests.post(url, data=post_data, headers=headers)
+        print("Response:", post_response.text)
+        
 
 eleitor = Eleitor()
 eleitor.connect_server()
@@ -60,6 +72,7 @@ print(reception)
 
 eleitor.atribuir_nome(input('Nome: '))
 eleitor.enviar(eleitor.nome)
+eleitor.generate_keys()
 
 reception = eleitor.receber()
 print(reception)

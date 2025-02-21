@@ -4,63 +4,75 @@ import time
 import rsa
 
 
-def get_address(name):
-    dns_address = ('127.0.0.1', 10000)
-    socket_dns = socket(AF_INET, SOCK_DGRAM)
-    socket_dns.bind(('127.0.0.1', 10100))
+class Eleitor:
+    def __init__(self):
+        self.nome = None
+        self.socket = None
+        self.server_name = 'votacao'
+        self.server_address = None
 
-    socket_dns.sendto(f'get_address:{name}'.encode(), dns_address)
+    def get_address(self):
+        dns_address = ('127.0.0.1', 10000)
+        socket_dns = socket(AF_INET, SOCK_DGRAM) # Abre socket temporário
+        socket_dns.bind(('127.0.0.1', 10100))
+
+        socket_dns.sendto(f'get_address:{self.server_name}'.encode(), dns_address)
+        
+        socket_dns.settimeout(2)  # Define timeout para 2 segundos
+        try:
+            response = socket_dns.recv(1024).decode().split(':')
+        except:
+            return 'DNS_NOT_FOUND'
+        socket_dns.close()
+        
+        if 'Not Found' not in response:
+            self.server_address = (response[0], int(response[1]))
+        
+    def connect_server(self):
+        while self.server_address is None:
+            self.get_address()
+            if self.server_address == 'DNS_NOT_FOUND':
+                print('DNS nao encontrado')
+                self.server_address = None
+                time.sleep(5)
+            elif self.server_address is None:
+                print('Servidor nao encontrado')
+                time.sleep(5)
+
+        self.socket = socket(AF_INET, SOCK_STREAM)
+        self.socket.connect(self.server_address)
+        print('Conectado ao servidor')
     
-    socket_dns.settimeout(2)  # set a timeout of 2 seconds
-    try:
-        response = socket_dns.recv(1024).decode().split(':')
-    except:
-        return 'DNS_NOT_FOUND'
-    socket_dns.close()
-    
-    if 'Not Found' in response:
-        return None
+    def atribuir_nome(self, nome):
+        self.nome = nome
+        
+    def enviar(self, msg):
+        self.socket.send(msg.encode())
 
-    server_address = (response[0], int(response[1]))
-    return server_address
+    def receber(self):
+        return self.socket.recv(1024).decode()
 
+eleitor = Eleitor()
+eleitor.connect_server()
 
-def connect_server(server_name):
-    server_address = None
-    while server_address is None:
-        server_address = get_address(server_name)
-        if server_address == 'DNS_NOT_FOUND':
-            print('DNS nao encontrado')
-            server_address = None
-        elif server_address is None:
-            print('Servidor nao encontrado')
-        time.sleep(5)
-
-    socket_client = socket(AF_INET, SOCK_STREAM)
-    socket_client.connect(server_address)
-    print('Conectado ao servidor')
-    return socket_client
-
-
-socket_client = connect_server('votacao')
-
-reception = socket_client.recv(1024).decode()
+reception = eleitor.receber()
 print(reception)
-nome = input('')
-socket_client.send(nome.encode())
 
-reception = socket_client.recv(1024).decode()
+eleitor.atribuir_nome(input('Nome: '))
+eleitor.enviar(eleitor.nome)
+
+reception = eleitor.receber()
 print(reception)
 
 resultado = ''
 resposta = ''
 while not resultado.startswith('Votacao encerrada') and not resposta.startswith('Votacao encerrada'):
     msg = input('entrada: ')
-    socket_client.send(msg.encode())
-    resposta = socket_client.recv(1024).decode()
+    eleitor.enviar(msg)
+    resposta = eleitor.receber()
     print(resposta)
 
-    resultado = socket_client.recv(1024).decode()
+    resultado = eleitor.receber()
     if resultado.startswith('Votacao encerrada') or resposta.startswith('Votacao encerrada'):
         print(resultado)
         break

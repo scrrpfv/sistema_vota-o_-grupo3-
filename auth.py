@@ -9,18 +9,26 @@ class AuthServer:
         self.public_keys = {}
     
     def handle_GET(self, request):
+        print(request)
         if request.startswith('GET / HTTP/1.1'):
             return 'HTTP/1.1 200 OK\n\n'
         
-        elif request.startswith('GET /?nome='):
+        elif request.startswith('GET /?name='):
             nome = request.split('=')[1].split(' ')[0]
             if nome in self.public_keys:
                 return f'HTTP/1.1 200 OK\n\n{self.public_keys[nome]}'
             else:
                 return 'HTTP/1.1 404 Not Found\n\nChave pública não encontrada!'
+        else:
+            return 'HTTP/1.1 400 Bad Request'
     
     def handle_POST(self, request):
         name = request.split('=')[1].split(' ')[0]
+        
+        if name in self.public_keys:
+            print(f'{name} já está registrado.')
+            return 'HTTP/1.1 403 Forbidden\n\nO usuário já está registrado.'
+            
         public_key = request.split('\n\n')[1]
         self.public_keys[name] = public_key
         print(f'Chave pública de {name} registrada com sucesso!:\n{public_key}')

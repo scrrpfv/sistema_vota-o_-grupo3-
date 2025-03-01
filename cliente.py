@@ -52,20 +52,58 @@ class Eleitor:
     def receber(self):
         return self.socket.recv(1024).decode()
     
+    def check_username(self, socket_http, http_address):
+        get_request = f"GET /?name={self.nome} HTTP/1.1"
+        socket_http.sendto(get_request.encode(), http_address)
+        get_response = socket_http.recv(1024).decode()
+        
+        if get_response.startswith('HTTP/1.1 200 OK'):
+            public_key_str = get_response.split('\n\n')[1]
+            public_key = rsa.PublicKey.load_pkcs1(public_key_str.encode())
+            return public_key
+        else:
+            return None
+    
     def generate_keys(self):
         http_address = self.get_address('auth')
-        
         socket_http = socket(AF_INET, SOCK_DGRAM)
-        public_key, private_key = rsa.newkeys(512)
-        self.private_key = private_key
         
-        post_data = public_key.save_pkcs1().decode()
-        post_request = f"POST /?name={self.nome} HTTP/1.1\n\n{post_data}"
-        socket_http.sendto(post_request.encode(), http_address)
-        post_response = socket_http.recv(1024).decode()
-        
-        print(post_response.split('\n\n')[1])
-        socket_http.close()
+        public_key = self.check_username(socket_http, http_address)
+        if public_key != None:
+            print('Usuario já está registrado')
+            print('Digite o código de acesso para entrar (finalize com uma linha em branco):')
+            while self.private_key == None:
+                private_key_lines = []
+                while True:
+                    line = input().strip()
+                    if line == '':
+                        break
+                    private_key_lines.append(line)
+                private_key_str = '\n'.join(private_key_lines)
+                try:
+                    self.private_key = rsa.PrivateKey.load_pkcs1(private_key_str.encode(), format='PEM')
+                    # Testa a chave privada descriptografando uma mensagem de teste
+                    test_message = rsa.encrypt('test'.encode(), public_key)
+                    rsa.decrypt(test_message, self.private_key)
+                    print('Chave privada validada com sucesso')
+                except Exception as e:
+                    print(f'Chave privada incorreta. Tente novamente')
+                    self.private_key = None
+        else:
+            public_key, private_key = rsa.newkeys(256)
+            self.private_key = private_key
+            
+            private_key_str = private_key.save_pkcs1().decode()
+            print(f'Lembre-se do seu código de acesso:\n{private_key_str}')
+            
+            post_data = public_key.save_pkcs1().decode()
+            post_request = f"POST /?name={self.nome} HTTP/1.1\n\n{post_data}"
+            socket_http.sendto(post_request.encode(), http_address)
+            post_response = socket_http.recv(1024).decode()
+            
+            print(post_response.split('\n\n')[1])
+            socket_http.close()
+
 
 eleitor = Eleitor()
 eleitor.atribuir_nome(input('Nome: '))

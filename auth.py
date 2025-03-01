@@ -1,60 +1,65 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse, parse_qs
+from socket import socket, AF_INET, SOCK_DGRAM
+import time
 
-public_keys = {}
 
-class handleRequest(BaseHTTPRequestHandler):
-    def do_GET(self):
-        query = parse_qs(urlparse(self.path).query)
-        self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
-        self.end_headers()
+class AuthServer:
+    def __init__(self):
+        self.web_socket = socket(AF_INET, SOCK_DGRAM)
+        self.web_socket.bind(('127.0.0.1', 5000))
+        self.public_keys = {}
+    
+    def handle_GET(self, request):
+        if request.startswith('GET / HTTP/1.1'):
+            return 'HTTP/1.1 200 OK\n\n'
         
-        nome = query.get('nome', [''])[0]
+        elif request.startswith('GET /?nome='):
+            nome = request.split('=')[1].split(' ')[0]
+            if nome in self.public_keys:
+                return f'HTTP/1.1 200 OK\n\n{self.public_keys[nome]}'
+            else:
+                return 'HTTP/1.1 404 Not Found\n\nChave pública não encontrada!'
+    
+    def handle_POST(self, request):
+        name = request.split('=')[1].split(' ')[0]
+        public_key = request.split('\n\n')[1]
+        self.public_keys[name] = public_key
+        print(f'Chave pública de {name} registrada com sucesso!:\n{public_key}')
+        return 'HTTP/1.1 200 OK\n\nChave pública registrada com sucesso!'
+
+    def send(self, response, addr):
+        self.web_socket.sendto(response.encode(), addr)
+    
+    def addto_dns(self):
+        socket_dns = socket(AF_INET, SOCK_DGRAM)
+        socket_dns.bind(('127.0.0.1', 5001))
         
-        if nome == "":
-            response = "status: error, data: nome not provided"
-        elif nome not in public_keys:
-            response = "status: error, data: nome not found"
-        else:
-            response = f"status: success; data: {public_keys[nome].decode()}"
-
-        self.wfile.write(response.encode())
-
-    def do_POST(self):
-        query = parse_qs(urlparse(self.path).query)
-        nome = query.get('nome', [''])[0]
-
-        if nome == "":
-            self.send_response(400)
-            self.send_header('Content-type', '')
-            self.end_headers()
-            response = "status: error; data: nome not provided"
-            self.wfile.write(response.encode())
-            return
-
-        if nome in public_keys:
-            self.send_response(400)
-            self.send_header('Content-type', '')
-            self.end_headers()
-            response = f"status: error; data: {nome} already exists"
-            self.wfile.write(response.encode())
-            return
-        
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        public_keys[nome] = post_data
-
-        print(f"Received public key from {nome}")
-        
-        self.send_response(200)
-        self.send_header('Content-type', '')
-        self.end_headers()
-        response = f"status: success, Public key for {nome} added"
-        self.wfile.write(response.encode())
+        socket_dns.settimeout(2)
+        while True:
+            socket_dns.sendto('new_address:auth:127.0.0.1:5000'.encode(), ('127.0.0.1', 10000))
+            try:
+                response = socket_dns.recv(1024).decode()
+            except:
+                response = 'DNS_NOT_FOUND'
+            print(response)
+            if response == 'Endereco adicionado com sucesso':
+                socket_dns.close()
+                return
+            
+            time.sleep(5)
 
 
-port = 5000
-httpServer = HTTPServer(('localhost', port), handleRequest)
-print(f'Starting HTTP server on port {port}')
-httpServer.serve_forever()
+servidor = AuthServer()
+servidor.addto_dns()
+    
+print('Aguardando solicitações...')
+
+while True:
+    request, addr = servidor.web_socket.recvfrom(1024)
+    print(f'Recebendo de {addr}')
+    request = request.decode()
+    if request.startswith('GET'):
+        response = servidor.handle_GET(request)
+        servidor.send(response, addr)
+    elif request.startswith('POST'):
+        response = servidor.handle_POST(request)
+        servidor.send(response, addr)

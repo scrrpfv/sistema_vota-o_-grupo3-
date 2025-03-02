@@ -47,7 +47,7 @@ class DnsServer:
         while True:
             query, addr = self.recv()
             self.handle_request(query, addr)
-            print(dns_table)
+            print(self.table)
 
 dns = DnsServer()
 dns.serve_forever()

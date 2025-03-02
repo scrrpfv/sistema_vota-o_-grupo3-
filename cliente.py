@@ -7,40 +7,35 @@ class Eleitor:
     def __init__(self):
         self.nome = None
         self.socket = None
-        self.server_name = 'votacao'
-        self.server_address = None
         self.private_key = None
 
     def get_address(self, addr_name):
         dns_address = ('127.0.0.1', 10000)
-        socket_dns = socket(AF_INET, SOCK_DGRAM) # Abre socket temporário
+        socket_dns = socket(AF_INET, SOCK_DGRAM)    # Abre socket temporário
         socket_dns.bind(('127.0.0.1', 10001))
-
-        socket_dns.sendto(f'get_address:{addr_name}'.encode(), dns_address)
+        socket_dns.settimeout(2)    # Define timeout para 2 segundos
         
-        socket_dns.settimeout(2)  # Define timeout para 2 segundos
-        try:
-            response = socket_dns.recv(1024).decode().split(':')
-        except:
-            return 'DNS_NOT_FOUND'
-        socket_dns.close()
-        
-        if 'Not Found' not in response:
-            return (response[0], int(response[1]))
+        response = None
+        while response is None:
+            socket_dns.sendto(f'get_address:{addr_name}'.encode(), dns_address)
+            try:
+                response = socket_dns.recv(1024).decode().split(':')
+            except:
+                print('DNS nao encontrado')
+            
+            if response is not None:
+                if 'Not Found' in response:
+                    print('Servidor nao encontrado')
+                    response = None
+                else:
+                    socket_dns.close()
+                    return (response[0], int(response[1]))
+            time.sleep(5)
         
     def connect_server(self):
-        while self.server_address is None:
-            self.server_address = self.get_address(self.server_name)
-            if self.server_address == 'DNS_NOT_FOUND':
-                print('DNS nao encontrado')
-                self.server_address = None
-                time.sleep(5)
-            elif self.server_address is None:
-                print('Servidor nao encontrado')
-                time.sleep(5)
-
+        server_address = self.get_address('votacao')
         self.socket = socket(AF_INET, SOCK_STREAM)
-        self.socket.connect(self.server_address)
+        self.socket.connect(server_address)
         print('Conectado ao servidor')
     
     def atribuir_nome(self, nome):
@@ -86,7 +81,7 @@ class Eleitor:
                     test_message = rsa.encrypt('test'.encode(), public_key)
                     rsa.decrypt(test_message, self.private_key)
                     print('Chave privada validada com sucesso')
-                except Exception as e:
+                except:
                     print(f'Chave privada incorreta. Tente novamente')
                     self.private_key = None
         else:

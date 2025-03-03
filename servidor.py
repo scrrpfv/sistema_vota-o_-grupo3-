@@ -2,19 +2,24 @@ from threading import Thread
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 import time
 
+
 class VotingServer:
-    def __init__(self):
+    def __init__(self, door, max_votes):
         self.socket = socket(AF_INET, SOCK_STREAM)
-        self.socket.bind(('127.0.0.1', 12345))
+        self.socket.bind(('127.0.0.1', door))
         self.socket.listen()
-        self.log = {}
-        self.conectados = {}
-        self.candidatos = {'1': 0, '2': 0}
-        self.vencedor = ''
-        self.total_votos = 0
+        self.data_socket = socket(AF_INET, SOCK_DGRAM)
+        self.data_socket.bind(('127.0.0.1', 11000 + door))
+        self.max_votes = max_votes
+    
+    def data(self, query):
+        self.data_socket.sendto(query.encode(), ('127.0.0.1', 11000 + door))
+        response, _ = self.socket.recvfrom(512)
+        response = response.decode()
+        return response
     
     def connect_dns(self):
-        query = f'new_address:votacao:127.0.0.1:12345'
+        query = f'new_address:votacao:127.0.0.1:{door}'
         dns_socket = socket(AF_INET, SOCK_DGRAM)
         dns_socket.sendto(query.encode(), ('127.0.0.1', 10000))
         response = dns_socket.recv(1024).decode()
@@ -23,7 +28,7 @@ class VotingServer:
     def check_winner(self):
         while self.vencedor == '':
             time.sleep(0.05)
-            if self.total_votos == 3:
+            if self.total_votos == max_votes:
                 if self.candidatos['1'] > self.candidatos['2']:
                     self.vencedor = 'candidato 1'
                 elif self.candidatos['2'] > self.candidatos['1']:
@@ -36,39 +41,37 @@ class VotingServer:
                 print(reply)
 
     def handle_request(self, socket_client):
-        start_msg = 'Digite seu nome para se conectar ao sistema de votacao:'
-        socket_client.send(start_msg.encode())
-        eleitor = socket_client.recv(1024).decode()
+        eleitor = socket_client.recv(1024).decode() # Recebe o nome do eleitor
 
-        if eleitor not in self.log:
-            self.log[eleitor] = 'Nao votou'
-            self.conectados[eleitor] = socket_client
+        if not self.data(f'IN log {eleitor}'):
+            self.data(f'INSERT log {eleitor} nao_votou')
+            self.data(f'INSERT conectados {eleitor} {socket_client}')
             start_msg = f'Bem vindo ao sistema de votacao, {eleitor}. Para votar no candidato 1, digite "votar 1". Para votar no candidato 2, digite "votar 2".'
             socket_client.send(start_msg.encode())
         
         else:
-            if self.log[eleitor] != 'Nao votou':
+            if self.data(f'SELECT log eleitor')!= 'nao_votou':
                 start_msg = f'Bem vindo de volta ao sistema de votacao, {eleitor}. Você já votou, aguarde os resultados.'
             else:
                 start_msg = f'Bem vindo de volta ao sistema de votacao, {eleitor}. Para votar no candidato 1, digite "votar 1". Para votar no candidato 2, digite "votar 2".'
             socket_client.send(start_msg.encode())
         
-        while self.vencedor == '':
+        while self.data(f'SELECT vencedor') == '':
             request = socket_client.recv(1024).decode()
-            if request == 'sair' and self.log[eleitor] != 'Nao votou':
-                if len(self.conectados) > 1:
+            if request == 'sair' and self.data(f'SELECT log {eleitor}') != 'nao_votou':
+                if self.data(f'LEN conectados') > 1:
                     break
                 else:
                     reply = 'Nao e possivel sair, pois e o unico eleitor conectado.'
 
             elif request.startswith('votar'):
                 voto = request[6:]
-                if self.log[eleitor] != 'Nao votou':
+                if self.data(f'SELECT log {eleitor}') != 'nao_votou':
                     reply = 'Voce ja votou, aguarde os resultados.'
-                elif voto in self.candidatos:
-                    self.log[eleitor] = 'Votou'
-                    self.candidatos[voto] += 1
-                    self.total_votos += 1
+                elif self.data(f'IN candidatos {voto}'):
+                    self.data(f'UPDATE log eleitor votou')
+                    self.data(f'UPDATE candidatos voto')
+                    self.data(f'UPDATE total_votos')
                     reply = f'Voce votou no candidato {voto}. '
                     print(f'Candidato {voto} recebeu um voto')
 
@@ -78,10 +81,9 @@ class VotingServer:
                 reply = 'Mensagem inválida, Tente novamente.'
             
             socket_client.send(reply.encode())
-            
-            time.sleep(0.1)
-            if self.vencedor != '':
-                break
+
+            if self.data('SELECT total_votos') == self.max_votes:
+                socket_client.send(reply.encode())
             else:
                 socket_client.send('Votacao continua'.encode())
         if vencedor != '':
@@ -89,15 +91,10 @@ class VotingServer:
             print(f'{eleitor} desconectou')
             socket_client.close()
 
-servidor = VotingServer()
-servidor.connect_dns()
-
-print('Aguardando solicitacao...')
-Thread(target=servidor.check_winner).start()
-
-while servidor.vencedor == '':
-    socket_client, addr_client = servidor.socket.accept()
-    print(f'Recebendo de {addr_client}')
-    Thread(target=servidor.handle_request, args=(socket_client,)).start()
-server_socket.close()
-print('Votacao encerrada e todos desconectados.')
+        def serve_forever(self):
+            while self.data('SELECT total_votos') < self.max_votes:
+                socket_client, addr_client = self.socket.accept()
+                print(f'Recebendo de {addr_client}')
+                Thread(target=self.handle_request, args=(socket_client,)).start()
+            server_socket.close()
+            print('Votacao encerrada e todos desconectados.')

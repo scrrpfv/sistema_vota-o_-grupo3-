@@ -106,8 +106,6 @@ eleitor.generate_keys()
 
 eleitor.connect_server()
 
-reception = eleitor.receber()
-print(reception)
 eleitor.enviar(eleitor.nome)
 
 reception = eleitor.receber()

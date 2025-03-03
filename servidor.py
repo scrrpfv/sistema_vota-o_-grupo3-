@@ -2,8 +2,6 @@ from threading import Thread
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 import time
 
-dns_address = ('127.0.0.1', 10000)
-
 class VotingServer:
     def __init__(self):
         self.socket = socket(AF_INET, SOCK_STREAM)

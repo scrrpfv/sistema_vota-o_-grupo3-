@@ -1,8 +1,9 @@
-from threading import Thread
+from threading import Thread, Lock
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 import time
 
 nvotos_fim = 5
+data_lock = Lock()
 
 class VotingServer:
     def __init__(self):
@@ -21,13 +22,14 @@ class VotingServer:
         self.max_votes = max_votes
     
     def data(self, query):
-        self.data_socket.sendto(query.encode(), ('127.0.0.1', 11000))
-        response, _ = self.data_socket.recvfrom(512)
-        response = response.decode()
-        try:
-            return int(response)
-        except ValueError:
-            return response
+        with data_lock:
+            self.data_socket.sendto(query.encode(), ('127.0.0.1', 11000))
+            response, _ = self.data_socket.recvfrom(512)
+            response = response.decode()
+            try:
+                return int(response)
+            except ValueError:
+                return response
     
     def connect_dns(self):
         query = f'new_address:votacao:127.0.0.1:{self.door}'
@@ -78,24 +80,29 @@ class VotingServer:
             
             socket_client.send(reply.encode())
 
-            if self.data('SELECT total_votos') == self.max_votes and self.max_votes == nvotos_fim:
-                votos1, votos2 = self.data('SELECT candidatos 1'), self.data('SELECT candidatos 2')
-                if votos1 > votos2:
-                    vencedor = 'candidato 1'
-                else:
-                    vencedor = 'candidato 2'
-                self.data(f'UPDATE vencedor {vencedor}')
-                socket_client.send(f'Votacao encerrada! O candidato vencedor é o {vencedor}'.encode())
+            if self.data('SELECT total_votos') == self.max_votes:
+                # Se ainda não chegou no numero de votos final, redireciona
+                if self.max_votes < nvotos_fim:
+                    status = 'Redirecionando para um novo servidor.'
+                # Se chegou no numero de votos final, finaliza a votação.
+                else: 
+                    votos1, votos2 = self.data('SELECT candidatos 1'), self.data('SELECT candidatos 2')
+                    if votos1 > votos2:
+                        vencedor = 'candidato 1'
+                    else:
+                        vencedor = 'candidato 2'
+                    self.data(f'UPDATE vencedor {vencedor}')
+                    status = f'Votacao encerrada! O candidato vencedor é o {vencedor}'
             else:
-                socket_client.send('Votacao continua'.encode())
+                status = 'Votacao continua'
+            socket_client.send(status.encode())
         self.data(f'DELETE conectados {eleitor}')
         socket_client.close()
         print(f'{eleitor} foi desconectado')
 
     def serve_forever(self):
         print('Aguardando solicitacoes...')
-        tv = self.data('SELECT total_votos')
-        while tv < self.max_votes:
+        while self.data('SELECT total_votos') < self.max_votes:
             socket_client, addr_client = self.socket.accept()
             print(f'Recebendo de {addr_client}')
             Thread(target=self.handle_request, args=(socket_client,)).start()

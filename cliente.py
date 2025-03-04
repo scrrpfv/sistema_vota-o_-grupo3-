@@ -111,15 +111,21 @@ eleitor.enviar(eleitor.nome)
 reception = eleitor.receber()
 print(reception)
 
-resultado = ''
-resposta = ''
-while not resultado.startswith('Votacao encerrada') and not resposta.startswith('Votacao encerrada'):
+while True:
     msg = input('entrada: ')
     eleitor.enviar(msg)
     resposta = eleitor.receber()
     print(resposta)
 
-    resultado = eleitor.receber()
-    if resultado.startswith('Votacao encerrada') or resposta.startswith('Votacao encerrada'):
-        print(resultado)
+    status = eleitor.receber()
+    print(status)
+    
+    if status.startswith('Redirecionando'):
+        eleitor.connect_server()
+        eleitor.enviar(eleitor.nome)
+        reception = eleitor.receber()
+        print(reception)
+        
+    elif status.startswith('Votacao encerrada!'):
         break
+    

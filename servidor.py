@@ -40,14 +40,10 @@ class VotingServer:
         eleitor = socket_client.recv(1024).decode() # Recebe o nome do eleitor
 
         if not self.data(f'IN log {eleitor}') == 'True':
-            print('chegou 1')
             self.data(f'INSERT log {eleitor} nao_votou')
-            print('chegou 2')
             self.data(f'INSERT conectados {eleitor} {socket_client}')
-            print('chegou 3')
             start_msg = f'Bem vindo ao sistema de votacao, {eleitor}. Para votar no candidato 1, digite "votar 1". Para votar no candidato 2, digite "votar 2".'
             socket_client.send(start_msg.encode())
-            print('conseguiu enviar')
             
         else:
             if self.data(f'SELECT log {eleitor}')!= 'nao_votou':
@@ -98,9 +94,8 @@ class VotingServer:
 
     def serve_forever(self):
         print('Aguardando solicitacoes...')
-        print('é um numero:')
-        print(self.data('SELECT total_votos'))
-        while int(self.data('SELECT total_votos')) < self.max_votes:
+        tv = self.data('SELECT total_votos')
+        while tv < self.max_votes:
             socket_client, addr_client = self.socket.accept()
             print(f'Recebendo de {addr_client}')
             Thread(target=self.handle_request, args=(socket_client,)).start()

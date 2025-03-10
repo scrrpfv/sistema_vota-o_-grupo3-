@@ -79,13 +79,16 @@ class VotingServer:
                 reply = 'Mensagem inválida, Tente novamente.'
             
             socket_client.send(reply.encode())
-
-            if self.data('SELECT total_votos') == self.max_votes:
+            
+            vencedor = self.data('SELECT vencedor')
+            if vencedor != '':
+                status = f'Votacao encerrada! O candidato vencedor é o {vencedor}'
+            elif self.data('SELECT total_votos') == self.max_votes:
                 # Se ainda não chegou no numero de votos final, redireciona
                 if self.max_votes < nvotos_fim:
                     status = 'Redirecionando para um novo servidor.'
                 # Se chegou no numero de votos final, finaliza a votação.
-                else: 
+                else:
                     votos1, votos2 = self.data('SELECT candidatos 1'), self.data('SELECT candidatos 2')
                     if votos1 > votos2:
                         vencedor = 'candidato 1'

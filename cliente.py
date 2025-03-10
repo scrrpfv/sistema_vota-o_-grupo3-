@@ -36,7 +36,7 @@ class Eleitor:
         server_address = self.get_address('votacao')
         self.socket = socket(AF_INET, SOCK_STREAM)
         self.socket.connect(server_address)
-        print('Conectado ao servidor')
+        print(f'Conectado ao servidor Com porta {server_address[1]}')
     
     def atribuir_nome(self, nome):
         self.nome = nome
@@ -95,10 +95,29 @@ class Eleitor:
             post_request = f"POST /?name={self.nome} HTTP/1.1\n\n{post_data}"
             socket_http.sendto(post_request.encode(), http_address)
             post_response = socket_http.recv(1024).decode()
-            
+            16000
             print(post_response.split('\n\n')[1])
             socket_http.close()
+    
+    def start_voting(self):
+        while True:
+            msg = input('entrada: ')
+            self.enviar(msg)
+            resposta = self.receber()
+            print(resposta)
 
+            status = self.receber()
+            print(status)
+            
+            if status.startswith('Redirecionando'):
+                time.sleep(2)
+                self.connect_server()
+                self.enviar(self.nome)
+                reception = self.receber()
+                print(reception)
+                
+            elif status.startswith('Votacao encerrada!'):
+                return
 
 eleitor = Eleitor()
 eleitor.atribuir_nome(input('Nome: '))
@@ -111,21 +130,5 @@ eleitor.enviar(eleitor.nome)
 reception = eleitor.receber()
 print(reception)
 
-while True:
-    msg = input('entrada: ')
-    eleitor.enviar(msg)
-    resposta = eleitor.receber()
-    print(resposta)
-
-    status = eleitor.receber()
-    print(status)
-    
-    if status.startswith('Redirecionando'):
-        eleitor.connect_server()
-        eleitor.enviar(eleitor.nome)
-        reception = eleitor.receber()
-        print(reception)
-        
-    elif status.startswith('Votacao encerrada!'):
-        break
+eleitor.start_voting()
     

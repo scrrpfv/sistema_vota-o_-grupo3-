@@ -31,8 +31,8 @@ class VotingServer:
             except ValueError:
                 return response
     
-    def connect_dns(self):
-        query = f'new_address:votacao:127.0.0.1:{self.door}'
+    def register_dns(self, door):
+        query = f'new_address:votacao:127.0.0.1:{door}'
         dns_socket = socket(AF_INET, SOCK_DGRAM)
         dns_socket.sendto(query.encode(), ('127.0.0.1', 10000))
         response = dns_socket.recv(1024).decode()
@@ -87,6 +87,7 @@ class VotingServer:
                 # Se ainda não chegou no numero de votos final, redireciona
                 if self.max_votes < nvotos_fim:
                     status = 'Redirecionando para um novo servidor.'
+                    self.register_dns(16000)
                 # Se chegou no numero de votos final, finaliza a votação.
                 else:
                     votos1, votos2 = self.data('SELECT candidatos 1'), self.data('SELECT candidatos 2')
@@ -105,8 +106,12 @@ class VotingServer:
 
     def serve_forever(self):
         print('Aguardando solicitacoes...')
+        self.socket.settimeout(1)
         while self.data('SELECT total_votos') < self.max_votes:
-            socket_client, addr_client = self.socket.accept()
+            try:
+                socket_client, addr_client = self.socket.accept()
+            except:
+                continue
             print(f'Recebendo de {addr_client}')
             Thread(target=self.handle_request, args=(socket_client,)).start()
         self.socket.close()

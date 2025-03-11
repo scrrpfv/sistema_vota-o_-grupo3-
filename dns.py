@@ -17,7 +17,7 @@ class DnsServer:
         return query, addr
     
     def handle_request(self, query, addr):
-        print(f'Recebendo de {addr}')
+        print(f'Recebendo de {addr}: {query}')
         
         query = query.split(':')
         if query[0] == 'new_address': # new_address:name:x.x.x.x:door
@@ -40,7 +40,7 @@ class DnsServer:
                 self.send('Not Found', addr)
                 print(f'Endereco {name} nao encontrado')
         else:
-            dns_socket.sendto('Busca inválida'.encode(), addr)
+            self.send('Busca inválida', addr)
             print('Busca inválida')
 
     def serve_forever(self):

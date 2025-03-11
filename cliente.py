@@ -12,7 +12,6 @@ class Eleitor:
     def get_address(self, addr_name):
         dns_address = ('127.0.0.1', 10000)
         socket_dns = socket(AF_INET, SOCK_DGRAM)    # Abre socket temporário
-        socket_dns.bind(('127.0.0.1', 10001))
         socket_dns.settimeout(2)    # Define timeout para 2 segundos
         
         response = None
@@ -109,8 +108,18 @@ class Eleitor:
             print(status)
             
             if status.startswith('Redirecionando'):
-                time.sleep(2)
-                self.connect_server()
+                self.enviar('sair')
+                self.socket.close()
+                time.sleep(1)
+                redirected = False
+                while not redirected:
+                    try:
+                        self.connect_server()
+                        redirected = True
+                    except:
+                        redirected = False
+                        print("Servidor redirecionado ainda não está disponível...")
+                        time.sleep(5)
                 self.enviar(self.nome)
                 reception = self.receber()
                 print(reception)

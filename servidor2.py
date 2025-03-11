@@ -9,5 +9,5 @@ servidor = VotingServer()
 servidor.set_door(16000)
 servidor.set_max_votes(5)
 
-servidor.connect_dns()
+servidor.register_dns(servidor.door)
 servidor.serve_forever()

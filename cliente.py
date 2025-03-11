@@ -95,7 +95,6 @@ class Eleitor:
             post_request = f"POST /?name={self.nome} HTTP/1.1\n\n{post_data}"
             socket_http.sendto(post_request.encode(), http_address)
             post_response = socket_http.recv(1024).decode()
-            16000
             print(post_response.split('\n\n')[1])
             socket_http.close()
     

@@ -23,8 +23,14 @@ class VotingServer:
     
     def data(self, query):
         with data_lock:
-            self.data_socket.sendto(query.encode(), ('127.0.0.1', 11000))
-            response, _ = self.data_socket.recvfrom(512)
+            while True:
+                self.data_socket.sendto(query.encode(), ('127.0.0.1', 11000))
+                try:
+                    response, _ = self.data_socket.recvfrom(512)
+                    break
+                except:
+                    print('Servidor de dados nao encontrado')
+                    time.sleep(5)
             response = response.decode()
             try:
                 return int(response)
@@ -32,11 +38,23 @@ class VotingServer:
                 return response
     
     def register_dns(self, door):
-        query = f'new_address:votacao:127.0.0.1:{door}'
-        dns_socket = socket(AF_INET, SOCK_DGRAM)
-        dns_socket.sendto(query.encode(), ('127.0.0.1', 10000))
-        response = dns_socket.recv(1024).decode()
-        print(response)
+        dns_address = ('127.0.0.1', 10000)
+        socket_dns = socket(AF_INET, SOCK_DGRAM)    # Abre socket temporário
+        socket_dns.settimeout(2)    # Define timeout para 2 segundos
+        
+        response = None
+        while response is None:
+            socket_dns.sendto(f'new_address:votacao:127.0.0.1:{door}'.encode(), dns_address)
+            try:
+                response = socket_dns.recv(1024).decode()
+            except:
+                print('DNS nao encontrado')
+            
+            if response == 'Endereco adicionado com sucesso':
+                socket_dns.close()
+                print(response)
+                return
+            time.sleep(5)
 
     def handle_request(self, socket_client):
         eleitor = socket_client.recv(1024).decode() # Recebe o nome do eleitor
@@ -106,7 +124,7 @@ class VotingServer:
 
     def serve_forever(self):
         print('Aguardando solicitacoes...')
-        self.socket.settimeout(1)
+        self.socket.settimeout(2)
         while self.data('SELECT total_votos') < self.max_votes:
             try:
                 socket_client, addr_client = self.socket.accept()

@@ -120,7 +120,7 @@ class VotingServer:
 
         while self.data('SELECT total_votos') < self.max_votes:
             request = socket_client.recv(1024).decode()
-            if request == 'sair' and self.data(f'SELECT log {eleitor}') != 'nao_votou':
+            if request == 'sair':
                 if self.data(f'LEN conectados') > 1:
                     break
                 else:

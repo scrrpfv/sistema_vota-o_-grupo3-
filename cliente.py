@@ -84,7 +84,7 @@ class Eleitor:
                     print(f'Chave privada incorreta. Tente novamente')
                     self.private_key = None
         else:
-            public_key, private_key = rsa.newkeys(256)
+            public_key, private_key = rsa.newkeys(512)
             self.private_key = private_key
             
             private_key_str = private_key.save_pkcs1().decode()
@@ -100,6 +100,11 @@ class Eleitor:
     def start_voting(self):
         while True:
             msg = input('entrada: ')
+            if msg.startswith('votar'):
+                voto = msg[6:]
+                signature = rsa.sign(voto.encode(), self.private_key, 'SHA-256')
+                msg = f'votar {voto}:{signature.hex()}'
+            
             self.enviar(msg)
             resposta = self.receber()
             print(resposta)
